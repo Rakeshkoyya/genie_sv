@@ -1,0 +1,37 @@
+# ─── Stage 1: dependency resolution ───────────────────────────────────────────
+FROM python:3.12-slim AS builder
+
+WORKDIR /app
+
+# Install uv
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+
+# Copy lockfile and project metadata first for layer caching
+COPY pyproject.toml uv.lock ./
+
+# Install deps into a local venv (no project package itself yet)
+RUN uv sync --frozen --no-dev --no-install-project
+
+# Copy application source
+COPY . .
+
+# Install project package
+RUN uv sync --frozen --no-dev
+
+# ─── Stage 2: production image ────────────────────────────────────────────────
+FROM python:3.12-slim
+
+WORKDIR /app
+
+# Copy the installed venv and source from builder
+COPY --from=builder /app/.venv /app/.venv
+COPY --from=builder /app /app
+
+# Add venv to PATH
+ENV PATH="/app/.venv/bin:$PATH"
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+EXPOSE 8000
+
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
