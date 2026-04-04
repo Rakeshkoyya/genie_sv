@@ -5,6 +5,7 @@ from app.models.source import InputSource, Dataset
 from app.models.prompt import Prompt, PromptFolder, ResponseFormat, PromptChain, PromptChainStep
 from app.models.generation import Generation, GenerationSource
 from app.models.export import ExportedDocument
+from app.models.workflow import WorkflowRun
 
 __all__ = [
     "User",
@@ -18,4 +19,5 @@ __all__ = [
     "Generation",
     "GenerationSource",
     "ExportedDocument",
+    "WorkflowRun",
 ]

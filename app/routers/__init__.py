@@ -12,6 +12,7 @@ from app.routers.generate import router as generate_router
 from app.routers.generations import router as generations_router
 from app.routers.exports import router as exports_router
 from app.routers.infographics import router as infographics_router
+from app.routers.workflows import router as workflows_router
 
 __all__ = [
     "health_router",
@@ -26,4 +27,5 @@ __all__ = [
     "generations_router",
     "exports_router",
     "infographics_router",
+    "workflows_router",
 ]
