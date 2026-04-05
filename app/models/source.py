@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any
 import enum
 
-from sqlalchemy import String, Text, Integer, DateTime, ForeignKey, Index
+from sqlalchemy import String, Text, Integer, DateTime, ForeignKey, Index, Enum as SAEnum
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -89,7 +89,7 @@ class InputSource(Base):
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     type: Mapped[SourceType] = mapped_column(
-        String(50),
+        SAEnum(SourceType, name="source_type", create_type=False),
         nullable=False
     )
     original_filename: Mapped[str | None] = mapped_column(String(500), nullable=True)
