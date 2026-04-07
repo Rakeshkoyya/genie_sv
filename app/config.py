@@ -34,7 +34,7 @@ class Settings(BaseSettings):
     # OpenRouter LLM
     openrouter_api_key: str = ""
     openrouter_model: str = "anthropic/claude-3.5-sonnet"
-    openrouter_image_model: str = "google/gemini-2.5-flash-image"
+    openrouter_image_model: str = "google/gemini-3.1-flash-image-preview"
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
     
     # NextAuth JWT validation

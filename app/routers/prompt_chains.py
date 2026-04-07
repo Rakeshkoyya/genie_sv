@@ -6,7 +6,7 @@ from sqlalchemy import select, delete
 from sqlalchemy.orm import selectinload
 
 from app.dependencies import DbSession, ApprovedUser
-from app.models.prompt import PromptChain, PromptChainStep
+from app.models.prompt import Prompt, PromptChain, PromptChainStep
 from app.schemas.prompt import (
     PromptChainRead, PromptChainCreate, PromptChainUpdate, PromptChainStepCreate
 )
@@ -20,7 +20,7 @@ async def list_chains(user: ApprovedUser, db: DbSession):
     result = await db.execute(
         select(PromptChain)
         .options(
-            selectinload(PromptChain.steps).selectinload(PromptChainStep.prompt),
+            selectinload(PromptChain.steps).selectinload(PromptChainStep.prompt).selectinload(Prompt.response_format),
             selectinload(PromptChain.steps).selectinload(PromptChainStep.response_format)
         )
         .where(PromptChain.user_id == user.id)
@@ -61,7 +61,7 @@ async def create_chain(
     result = await db.execute(
         select(PromptChain)
         .options(
-            selectinload(PromptChain.steps).selectinload(PromptChainStep.prompt),
+            selectinload(PromptChain.steps).selectinload(PromptChainStep.prompt).selectinload(Prompt.response_format),
             selectinload(PromptChain.steps).selectinload(PromptChainStep.response_format)
         )
         .where(PromptChain.id == chain.id)
@@ -81,7 +81,7 @@ async def get_chain(
     result = await db.execute(
         select(PromptChain)
         .options(
-            selectinload(PromptChain.steps).selectinload(PromptChainStep.prompt),
+            selectinload(PromptChain.steps).selectinload(PromptChainStep.prompt).selectinload(Prompt.response_format),
             selectinload(PromptChain.steps).selectinload(PromptChainStep.response_format)
         )
         .where(
@@ -145,7 +145,7 @@ async def update_chain(
     result = await db.execute(
         select(PromptChain)
         .options(
-            selectinload(PromptChain.steps).selectinload(PromptChainStep.prompt),
+            selectinload(PromptChain.steps).selectinload(PromptChainStep.prompt).selectinload(Prompt.response_format),
             selectinload(PromptChain.steps).selectinload(PromptChainStep.response_format)
         )
         .where(PromptChain.id == chain_id)

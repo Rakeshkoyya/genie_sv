@@ -12,12 +12,12 @@ from sqlalchemy.orm import selectinload
 
 from app.database import AsyncSessionLocal
 from app.models.source import InputSource
-from app.models.prompt import PromptChain, PromptChainStep
+from app.models.prompt import Prompt, PromptChain, PromptChainStep
 from app.models.export import ExportedDocument, ExportFormat
 from app.models.workflow import WorkflowRun, WorkflowStatus
 from app.services.llm import LLMService
 from app.services.storage import StorageService
-from app.services.document_export import create_docx, create_txt, sanitize_filename
+from app.services.document_export import create_docx, create_txt, create_pdf, sanitize_filename
 from app.utils.prompt_builder import format_sources_text, prepare_media_parts
 from app.config import get_settings
 
@@ -114,7 +114,7 @@ async def run_workflow(workflow_id: uuid.UUID) -> None:
             chain_result = await db.execute(
                 select(PromptChain)
                 .options(
-                    selectinload(PromptChain.steps).selectinload(PromptChainStep.prompt),
+                    selectinload(PromptChain.steps).selectinload(PromptChainStep.prompt).selectinload(Prompt.response_format),
                     selectinload(PromptChain.steps).selectinload(PromptChainStep.response_format),
                 )
                 .where(PromptChain.id == workflow.chain_id)
@@ -126,9 +126,18 @@ async def run_workflow(workflow_id: uuid.UUID) -> None:
 
             sorted_steps = sorted(chain.steps, key=lambda s: s.step_order)
             steps_data = [
-                {"prompt": step.prompt.text, "format": step.response_format.template_text if step.response_format else None}
+                {
+                    "prompt": step.prompt.text,
+                    "name": step.prompt.name,
+                    "format": (
+                        step.response_format.template_text if step.response_format
+                        else (step.prompt.response_format.template_text if step.prompt.response_format else None)
+                    )
+                }
                 for step in sorted_steps
             ]
+            chain_name = chain.name
+            chain_description = chain.description
 
             # Load sources
             source_id_list = [uuid.UUID(str(sid)) for sid in workflow.source_ids]
@@ -179,16 +188,34 @@ async def run_workflow(workflow_id: uuid.UUID) -> None:
                     sources_text = format_sources_text(source_texts)
                     image_parts = prepare_media_parts(media_parts_raw)
 
+                    # Create master plan for this file
+                    try:
+                        master_plan = await llm.create_master_plan(
+                            sources=sources_text,
+                            steps=steps_data,
+                            chain_name=chain_name,
+                            chain_description=chain_description,
+                            model=workflow.model,
+                        )
+                    except Exception as plan_exc:
+                        logger.warning("Master planner failed for file %s, proceeding without plan: %s", source.name, plan_exc)
+                        master_plan = None
+
                     # Execute chain step by step, updating progress
                     step_results: list[str] = []
+                    total = len(steps_data)
                     for step_idx, step in enumerate(steps_data):
                         await _update_progress(db, workflow_id, current_step_index=step_idx)
+                        step_name = step.get("name", f"Step {step_idx + 1}")
+                        step_context = f"Step {step_idx + 1} of {total} — \"{step_name}\""
                         response = await llm.generate(
                             sources=sources_text,
                             prompt=step["prompt"],
                             format_text=step.get("format"),
                             model=workflow.model,
                             media_parts=image_parts if image_parts else None,
+                            master_plan=master_plan,
+                            step_context=step_context,
                         )
                         step_results.append(response)
 
@@ -205,6 +232,9 @@ async def run_workflow(workflow_id: uuid.UUID) -> None:
                     if fmt == "docx":
                         doc_bytes = create_docx(filename, [{"name": source.name, "content": combined}])
                         content_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                    elif fmt == "pdf":
+                        doc_bytes = create_pdf(filename, [{"name": source.name, "content": combined}])
+                        content_type = "application/pdf"
                     else:
                         doc_bytes = create_txt(filename, combined)
                         content_type = "text/plain; charset=utf-8"
@@ -212,10 +242,11 @@ async def run_workflow(workflow_id: uuid.UUID) -> None:
                     await storage.upload(settings.exports_bucket, storage_path, doc_bytes, content_type)
 
                     # Create export record
+                    format_map = {"docx": ExportFormat.docx, "pdf": ExportFormat.pdf, "txt": ExportFormat.txt}
                     export = ExportedDocument(
                         user_id=workflow.user_id,
                         dataset_id=workflow.dataset_id,
-                        format=ExportFormat.docx if fmt == "docx" else ExportFormat.txt,
+                        format=format_map.get(fmt, ExportFormat.txt),
                         storage_path=storage_path,
                         filename=filename,
                         file_size=len(doc_bytes),

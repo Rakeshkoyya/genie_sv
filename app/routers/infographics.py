@@ -47,8 +47,6 @@ DIMENSIONS = {
 
 IMAGE_MODELS = list(dict.fromkeys(m for m in [
     settings.openrouter_image_model,
-    "google/gemini-2.5-flash-image",
-    "google/gemini-3-pro-image-preview",
     "google/gemini-3.1-flash-image-preview",
 ] if m))
 
