@@ -20,6 +20,7 @@ from app.routers import (
     exports_router,
     infographics_router,
     workflows_router,
+    docforge_router,
 )
 
 settings = get_settings()
@@ -66,6 +67,7 @@ app.include_router(generations_router)
 app.include_router(exports_router)
 app.include_router(infographics_router)
 app.include_router(workflows_router)
+app.include_router(docforge_router)
 
 
 @app.get("/")

@@ -13,6 +13,7 @@ from app.routers.generations import router as generations_router
 from app.routers.exports import router as exports_router
 from app.routers.infographics import router as infographics_router
 from app.routers.workflows import router as workflows_router
+from app.routers.docforge import router as docforge_router
 
 __all__ = [
     "health_router",
@@ -28,4 +29,5 @@ __all__ = [
     "exports_router",
     "infographics_router",
     "workflows_router",
+    "docforge_router",
 ]

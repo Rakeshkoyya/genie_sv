@@ -16,6 +16,7 @@ if TYPE_CHECKING:
     from app.models.prompt import Prompt, PromptFolder, PromptChain
     from app.models.generation import Generation
     from app.models.export import ExportedDocument
+    from app.models.docforge import DocForgeTemplate, DocForgeFolder, DocForgeDocument
 
 
 class UserRole(str, enum.Enum):
@@ -88,4 +89,13 @@ class User(Base):
     )
     exported_documents: Mapped[list["ExportedDocument"]] = relationship(
         "ExportedDocument", back_populates="user", cascade="all, delete-orphan"
+    )
+    docforge_templates: Mapped[list["DocForgeTemplate"]] = relationship(
+        "DocForgeTemplate", back_populates="user", cascade="all, delete-orphan"
+    )
+    docforge_folders: Mapped[list["DocForgeFolder"]] = relationship(
+        "DocForgeFolder", back_populates="user", cascade="all, delete-orphan"
+    )
+    docforge_documents: Mapped[list["DocForgeDocument"]] = relationship(
+        "DocForgeDocument", back_populates="user", cascade="all, delete-orphan"
     )

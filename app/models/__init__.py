@@ -6,6 +6,7 @@ from app.models.prompt import Prompt, PromptFolder, ResponseFormat, PromptChain,
 from app.models.generation import Generation, GenerationSource
 from app.models.export import ExportedDocument
 from app.models.workflow import WorkflowRun
+from app.models.docforge import DocForgeTemplate, DocForgeFolder, DocForgeDocument
 
 __all__ = [
     "User",
@@ -20,4 +21,7 @@ __all__ = [
     "GenerationSource",
     "ExportedDocument",
     "WorkflowRun",
+    "DocForgeTemplate",
+    "DocForgeFolder",
+    "DocForgeDocument",
 ]
