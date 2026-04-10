@@ -161,8 +161,6 @@ async def generate_content(
                 media_parts=image_parts if image_parts else None,
                 chain_name=chain.name,
                 chain_description=chain.description,
-                grade=data.grade,
-                subject=data.subject,
             )
             
             combined_content = "\n<pagebreak/>\n".join(results)
@@ -250,11 +248,14 @@ async def generate_chain_stream(
 ):
     """Generate content using a prompt chain with SSE progress streaming.
 
+    Uses a two-call architecture:
+      1. Master planner call — analyses source and optimises all prompts/formats
+      2. Single mega generation call — generates ALL sections in one shot
+
     Streams events:
-      - step_start: {step, total_steps, step_name}
-      - step_complete: {step, total_steps, step_name, content}
+      - phase: {phase: "planning"|"generating"|"processing", message}
       - done: {content, generation_id}
-      - error: {message, step?}
+      - error: {message}
     """
     if not data.chain_id:
         raise HTTPException(
@@ -265,7 +266,7 @@ async def generate_chain_stream(
     llm = LLMService()
     storage = StorageService()
 
-    # ── Gather source content (same logic as the main endpoint) ──
+    # ── Gather source content ──
     source_texts = []
     media_parts_list = []
 
@@ -324,6 +325,7 @@ async def generate_chain_stream(
         }
         for step in sorted_steps
     ]
+    step_names = [s["name"] for s in steps_data]
 
     # ── Create generation record ──
     generation = Generation(
@@ -343,82 +345,65 @@ async def generate_chain_stream(
     await db.refresh(generation)
 
     gen_id = str(generation.id)
-
-    # ── Pre-compute master plan before streaming (needs chain metadata) ──
     chain_name = chain.name
     chain_description = chain.description
-    req_grade = data.grade
-    req_subject = data.subject
 
     async def event_stream():
         total = len(steps_data)
-        results: list[str] = []
 
-        # Step 0: Master planner — analyze source and create execution plan
-        yield _sse_event("planning", {
-            "status": "started",
-            "message": "Analyzing chapter & planning workbook...",
+        # Phase 1: Planning
+        yield _sse_event("phase", {
+            "phase": "planning",
+            "message": "Analysing chapter & designing workbook...",
+            "total_sections": total,
+            "section_names": step_names,
         })
 
         try:
-            master_plan = await llm.create_master_plan(
+            plan = await llm.create_workbook_plan(
                 sources=sources_text,
                 steps=steps_data,
                 chain_name=chain_name,
                 chain_description=chain_description,
                 model=data.model,
-                grade=req_grade,
-                subject=req_subject,
             )
+            planned_steps = plan["steps"]
         except Exception as exc:
-            logger.warning("Master planner failed, proceeding without plan: %s", exc)
-            master_plan = None
+            logger.warning("Workbook planner failed, using original prompts: %s", exc)
+            planned_steps = [{"prompt": s["prompt"], "format": s.get("format")} for s in steps_data]
 
-        yield _sse_event("planning", {
-            "status": "completed",
-            "message": "Workbook plan ready. Generating content...",
+        # Phase 2: Generating (single mega-call)
+        yield _sse_event("phase", {
+            "phase": "generating",
+            "message": f"Generating all {total} sections in one shot...",
+            "total_sections": total,
+            "section_names": step_names,
         })
 
-        for idx, step in enumerate(steps_data):
-            yield _sse_event("step_start", {
-                "step": idx + 1,
-                "total_steps": total,
-                "step_name": step["name"],
-            })
+        try:
+            results = await llm.generate_all_sections(
+                sources=sources_text,
+                planned_steps=planned_steps,
+                step_names=step_names,
+                model=data.model,
+                media_parts=image_parts if image_parts else None,
+            )
+        except Exception as exc:
+            yield _sse_event("error", {"message": str(exc)})
+            generation.status = GenerationStatus.error
+            generation.error_message = str(exc)
+            await db.commit()
+            return
 
-            try:
-                step_context = f"Step {idx + 1} of {total} — \"{step['name']}\""
-                step_content = await llm.generate(
-                    sources=sources_text,
-                    prompt=step["prompt"],
-                    format_text=step.get("format"),
-                    model=data.model,
-                    media_parts=image_parts if image_parts else None,
-                    master_plan=master_plan,
-                    step_context=step_context,
-                )
-                results.append(step_content)
-
-                yield _sse_event("step_complete", {
-                    "step": idx + 1,
-                    "total_steps": total,
-                    "step_name": step["name"],
-                    "content": step_content,
-                })
-            except Exception as exc:
-                yield _sse_event("error", {
-                    "message": str(exc),
-                    "step": idx + 1,
-                })
-                # Save error state
-                generation.status = GenerationStatus.error
-                generation.error_message = str(exc)
-                await db.commit()
-                return
+        # Phase 3: Processing
+        yield _sse_event("phase", {
+            "phase": "processing",
+            "message": "Processing response & preparing output...",
+            "total_sections": total,
+        })
 
         combined = "\n<pagebreak/>\n".join(results)
 
-        # Save completed state
         generation.status = GenerationStatus.completed
         generation.response_content = combined
         await db.commit()

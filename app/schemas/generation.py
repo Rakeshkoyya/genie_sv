@@ -62,8 +62,6 @@ class GenerateRequest(BaseModel):
     model: str = "anthropic/claude-3.5-sonnet"
     title: str | None = None
     chain_id: UUID | None = None
-    grade: str | None = None
-    subject: str | None = None
 
 
 class GenerateResponse(BaseModel):

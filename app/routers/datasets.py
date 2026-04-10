@@ -83,9 +83,14 @@ async def create_dataset(
     )
     db.add(dataset)
     await db.commit()
-    await db.refresh(dataset)
     
-    return dataset
+    # Re-fetch with input_sources eagerly loaded to avoid lazy-load outside async context
+    result = await db.execute(
+        select(Dataset)
+        .options(selectinload(Dataset.input_sources))
+        .where(Dataset.id == dataset.id)
+    )
+    return result.scalar_one()
 
 
 @router.get("/{dataset_id}", response_model=DatasetRead)
@@ -142,9 +147,14 @@ async def update_dataset(
         setattr(dataset, field, value)
     
     await db.commit()
-    await db.refresh(dataset)
     
-    return dataset
+    # Re-fetch with input_sources eagerly loaded to avoid lazy-load outside async context
+    result = await db.execute(
+        select(Dataset)
+        .options(selectinload(Dataset.input_sources))
+        .where(Dataset.id == dataset.id)
+    )
+    return result.scalar_one()
 
 
 @router.delete("/{dataset_id}")

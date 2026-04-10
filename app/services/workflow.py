@@ -188,36 +188,29 @@ async def run_workflow(workflow_id: uuid.UUID) -> None:
                     sources_text = format_sources_text(source_texts)
                     image_parts = prepare_media_parts(media_parts_raw)
 
-                    # Create master plan for this file
+                    # Create workbook plan for this file — optimise prompts/formats
                     try:
-                        master_plan = await llm.create_master_plan(
+                        plan = await llm.create_workbook_plan(
                             sources=sources_text,
                             steps=steps_data,
                             chain_name=chain_name,
                             chain_description=chain_description,
                             model=workflow.model,
                         )
+                        planned_steps = plan["steps"]
                     except Exception as plan_exc:
-                        logger.warning("Master planner failed for file %s, proceeding without plan: %s", source.name, plan_exc)
-                        master_plan = None
+                        logger.warning("Workbook planner failed for file %s, using originals: %s", source.name, plan_exc)
+                        planned_steps = [{"prompt": s["prompt"], "format": s.get("format")} for s in steps_data]
 
-                    # Execute chain step by step, updating progress
-                    step_results: list[str] = []
-                    total = len(steps_data)
-                    for step_idx, step in enumerate(steps_data):
-                        await _update_progress(db, workflow_id, current_step_index=step_idx)
-                        step_name = step.get("name", f"Step {step_idx + 1}")
-                        step_context = f"Step {step_idx + 1} of {total} — \"{step_name}\""
-                        response = await llm.generate(
-                            sources=sources_text,
-                            prompt=step["prompt"],
-                            format_text=step.get("format"),
-                            model=workflow.model,
-                            media_parts=image_parts if image_parts else None,
-                            master_plan=master_plan,
-                            step_context=step_context,
-                        )
-                        step_results.append(response)
+                    # Generate all sections in a single LLM call
+                    step_names = [s.get("name", f"Section {i+1}") for i, s in enumerate(steps_data)]
+                    step_results = await llm.generate_all_sections(
+                        sources=sources_text,
+                        planned_steps=planned_steps,
+                        step_names=step_names,
+                        model=workflow.model,
+                        media_parts=image_parts if image_parts else None,
+                    )
 
                     combined = "\n\n---\n\n".join(step_results)
 
