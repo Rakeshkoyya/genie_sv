@@ -17,6 +17,7 @@ if TYPE_CHECKING:
     from app.models.generation import Generation
     from app.models.export import ExportedDocument
     from app.models.docforge import DocForgeTemplate, DocForgeFolder, DocForgeDocument
+    from app.models.wiki import Wiki
 
 
 class UserRole(str, enum.Enum):
@@ -98,4 +99,7 @@ class User(Base):
     )
     docforge_documents: Mapped[list["DocForgeDocument"]] = relationship(
         "DocForgeDocument", back_populates="user", cascade="all, delete-orphan"
+    )
+    wikis: Mapped[list["Wiki"]] = relationship(
+        "Wiki", back_populates="user", cascade="all, delete-orphan"
     )

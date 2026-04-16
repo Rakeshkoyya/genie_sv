@@ -15,6 +15,7 @@ if TYPE_CHECKING:
     from app.models.user import User
     from app.models.generation import GenerationSource
     from app.models.export import ExportedDocument
+    from app.models.wiki import Wiki
 
 
 class SourceType(str, enum.Enum):
@@ -64,6 +65,9 @@ class Dataset(Base):
     )
     exported_documents: Mapped[list["ExportedDocument"]] = relationship(
         "ExportedDocument", back_populates="dataset"
+    )
+    wiki: Mapped["Wiki | None"] = relationship(
+        "Wiki", back_populates="dataset", uselist=False, cascade="all, delete-orphan"
     )
 
 

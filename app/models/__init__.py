@@ -7,6 +7,9 @@ from app.models.generation import Generation, GenerationSource
 from app.models.export import ExportedDocument
 from app.models.workflow import WorkflowRun
 from app.models.docforge import DocForgeTemplate, DocForgeFolder, DocForgeDocument
+from app.models.wiki import (
+    Wiki, WikiPage, WikiPageLink, WikiSourcePage, WikiLog, WikiTransformation,
+)
 
 __all__ = [
     "User",
@@ -24,4 +27,10 @@ __all__ = [
     "DocForgeTemplate",
     "DocForgeFolder",
     "DocForgeDocument",
+    "Wiki",
+    "WikiPage",
+    "WikiPageLink",
+    "WikiSourcePage",
+    "WikiLog",
+    "WikiTransformation",
 ]
