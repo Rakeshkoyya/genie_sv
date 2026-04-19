@@ -21,6 +21,7 @@ from app.routers import (
     infographics_router,
     workflows_router,
     docforge_router,
+    docagent_router,
 )
 
 settings = get_settings()
@@ -68,6 +69,7 @@ app.include_router(exports_router)
 app.include_router(infographics_router)
 app.include_router(workflows_router)
 app.include_router(docforge_router)
+app.include_router(docagent_router)
 
 
 @app.get("/")

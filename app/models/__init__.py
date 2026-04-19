@@ -7,6 +7,7 @@ from app.models.generation import Generation, GenerationSource
 from app.models.export import ExportedDocument
 from app.models.workflow import WorkflowRun
 from app.models.docforge import DocForgeTemplate, DocForgeFolder, DocForgeDocument
+from app.models.docagent import DocAgentJob
 
 __all__ = [
     "User",
@@ -24,4 +25,5 @@ __all__ = [
     "DocForgeTemplate",
     "DocForgeFolder",
     "DocForgeDocument",
+    "DocAgentJob",
 ]
